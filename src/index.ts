@@ -1,12 +1,27 @@
-import { GL_FRAGMENT_SHADER, GL_KEEP, GL_VERTEX_SHADER } from './webgl-constants';
+import { getContext } from './canvas';
+import { getUniforms, UniformData, UniformDefinition } from './uniforms';
+import { createBuffer, generateProgram } from './utils';
 
 const vertexShaderSource = `#version 300 es
 
-in vec4 a_position;
+in vec2 a_position;
+uniform vec2 u_resolution;
+uniform vec2 u_translation;
 
 void main()
 {
-    gl_Position = a_position;
+    vec2 position = a_position + u_translation;
+
+    // Convert the position from pixels -> 0.0, 1.0
+    vec2 zeroToOne = position / u_resolution;
+
+    // Convert from 0.0, 1.0 -> 0.0, 2.0
+    vec2 zeroToTwo = zeroToOne * 2.0;
+
+    // Convert from 0.0, 2.0 -> -1.0, +1.0
+    vec2 clipSpace = zeroToTwo - 1.0;
+
+    gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
 }
 `;
 
@@ -23,97 +38,59 @@ void main()
 `;
 
 window.onload = () => {
-    const canvas = document.getElementById('game');
-    if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
-        throw new Error('Game canvas not found #game');
-    }
-
-    const gl = canvas.getContext('webgl2');
-    if (!gl) {
-        throw new Error('WebGL context not found');
-    }
-
-    const vertexShader = createShader(gl, GL_VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = createShader(gl, GL_FRAGMENT_SHADER, fragmentShaderSource);
-
-    if (!vertexShader || !fragmentShader) {
-        throw new Error('Invalid vertex of fragment shader');
-    }
-
-    const program = createProgram(gl, vertexShader, fragmentShader);
-    if (!program) {
-        throw new Error('Invalid program');
-    }
+    const gl = getContext();
+    const program = generateProgram(gl, vertexShaderSource, fragmentShaderSource);
 
     const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
-    const positionBuffer = gl.createBuffer();
+    const translation = new Float32Array([200, 0]);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const buffers = [
+        createBuffer(gl, [50, 150, 100, 100, 150, 150]),
+        createBuffer(gl, [-50, 50, 0, 0, 50, 50])
+    ];
 
-    const positions = new Float32Array([0, 0, 0, 0.5, 0.7, 0]);
+    const uniformData: UniformData = {
+        u_translation: translation,
+        u_resolution: new Float32Array([gl.canvas.width, gl.canvas.height])
+    };
 
-    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    const uniforms = getUniforms(gl, uniformData, program);
 
     const vertexArrayObject = gl.createVertexArray();
     gl.bindVertexArray(vertexArrayObject);
     gl.enableVertexAttribArray(positionAttributeLocation);
 
-    const size = 2; // components per iteration
-    const type = gl.FLOAT; // type 32 bit float
-    const normalize = false; // dont normalize the data
-    const stride = 0; // move foward size * sizeof(type)
-    const offset = 0; // start from the beginning
+    if (!vertexArrayObject) throw Error('Error creating vao');
 
-    gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+    let t = 0.01;
+    setInterval(() => {
+        t = t + 0.01;
+        translation[1] = 200 + 100 * Math.sin(t);
+        // uniformData['u_resolution'].data = new Float32Array([gl.canvas.width, gl.canvas.height]);
+        draw(gl, program, uniforms, buffers, [positionAttributeLocation]);
+    }, 5);
+};
 
+function draw(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+    uniforms: UniformDefinition[],
+    buffers: WebGLBuffer[],
+    attibutes: number[]
+) {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(program);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-};
 
-type ShaderType = typeof GL_FRAGMENT_SHADER | typeof GL_VERTEX_SHADER;
-
-function createShader(gl: WebGL2RenderingContext, type: ShaderType, soruce: string): WebGLShader | null {
-    const shader = gl.createShader(type);
-    if (!shader) {
-        throw new Error('Error generating shader');
+    for (const uniform of uniforms) {
+        gl[uniform.type](uniform.location, uniform.data);
     }
 
-    gl.shaderSource(shader, soruce);
-    gl.compileShader(shader);
-
-    const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (success) {
-        return shader;
+    for (const buffer of buffers) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.vertexAttribPointer(attibutes[0], 2, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
-
-    console.error('Error creating shader');
-    console.error(gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-}
-
-function createProgram(gl: WebGL2RenderingContext, vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram | null {
-    const program = gl.createProgram();
-    if (!program) {
-        throw new Error('Error generating program');
-    }
-
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-
-    const success = gl.getProgramParameter(program, gl.LINK_STATUS);
-    if (success) {
-        return program;
-    }
-
-    console.error('Error creating program');
-    console.error(gl.getProgramInfoLog(program));
-    gl.deleteProgram(program);
-
-    return null;
 }
