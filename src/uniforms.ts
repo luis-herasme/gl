@@ -8,20 +8,23 @@ type UniformType =
     | 'uniform3iv'
     | 'uniform4iv';
 
+export type UniformValue = Float32Array | Int32Array;
+
 export type UniformDefinition = {
     location: WebGLUniformLocation | null;
     type: UniformType;
-    data: Float32Array | Int32Array;
+    data: UniformValue;
 };
 
-export type UniformData = { [uniformName: string]: Float32Array | Int32Array };
+export type UniformData = { [uniformName: string]: UniformValue };
+export type UniformDefinitions = { [uniformName: string]: UniformDefinition };
 
 export function getUniforms(
     gl: WebGL2RenderingContext,
     data: UniformData,
     program: WebGLProgram
-): UniformDefinition[] {
-    const uniformDefinitions: UniformDefinition[] = [];
+): UniformDefinitions {
+    const uniformDefinitions: UniformDefinitions = {};
 
     for (const uniformName of Object.keys(data)) {
         const uniformLocation = gl.getUniformLocation(program, uniformName);
@@ -33,7 +36,7 @@ export function getUniforms(
             type: getUniformDataType(uniformData)
         };
 
-        uniformDefinitions.push(uniformDefinition);
+        uniformDefinitions[uniformName] = uniformDefinition;
     }
 
     return uniformDefinitions;

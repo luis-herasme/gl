@@ -1,6 +1,6 @@
 import { getContext } from './canvas';
-import { getUniforms, UniformData, UniformDefinition } from './uniforms';
-import { createBuffer, generateProgram } from './utils';
+import { Program } from './Program';
+import { createBuffer } from './utils';
 
 const vertexShaderSource = `#version 300 es
 
@@ -39,22 +39,17 @@ void main()
 
 window.onload = () => {
     const gl = getContext();
-    const program = generateProgram(gl, vertexShaderSource, fragmentShaderSource);
+    const program = new Program(gl, vertexShaderSource, fragmentShaderSource, {
+        u_translation: new Float32Array([200, 0]),
+        u_resolution: new Float32Array([gl.canvas.width, gl.canvas.height])
+    });
 
-    const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
-    const translation = new Float32Array([200, 0]);
+    const positionAttributeLocation = gl.getAttribLocation(program.getProgram(), 'a_position');
 
     const buffers = [
         createBuffer(gl, [50, 150, 100, 100, 150, 150]),
         createBuffer(gl, [-50, 50, 0, 0, 50, 50])
     ];
-
-    const uniformData: UniformData = {
-        u_translation: translation,
-        u_resolution: new Float32Array([gl.canvas.width, gl.canvas.height])
-    };
-
-    const uniforms = getUniforms(gl, uniformData, program);
 
     const vertexArrayObject = gl.createVertexArray();
     gl.bindVertexArray(vertexArrayObject);
@@ -65,16 +60,15 @@ window.onload = () => {
     let t = 0.01;
     setInterval(() => {
         t = t + 0.01;
-        translation[1] = 200 + 100 * Math.sin(t);
-        // uniformData['u_resolution'].data = new Float32Array([gl.canvas.width, gl.canvas.height]);
-        draw(gl, program, uniforms, buffers, [positionAttributeLocation]);
+        program.setUniform('u_translation', new Float32Array([200, 200 + 100 * Math.sin(t)]));
+        program.setUniform('u_resolution', new Float32Array([gl.canvas.width, gl.canvas.height]));
+        draw(gl, program, buffers, [positionAttributeLocation]);
     }, 5);
 };
 
 function draw(
     gl: WebGL2RenderingContext,
-    program: WebGLProgram,
-    uniforms: UniformDefinition[],
+    program: Program,
     buffers: WebGLBuffer[],
     attibutes: number[]
 ) {
@@ -82,11 +76,7 @@ function draw(
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.useProgram(program);
-
-    for (const uniform of uniforms) {
-        gl[uniform.type](uniform.location, uniform.data);
-    }
+    program.use();
 
     for (const buffer of buffers) {
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
