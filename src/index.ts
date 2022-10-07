@@ -1,10 +1,11 @@
-import { getContext } from './canvas';
-import { Program } from './Program';
-import { createBuffer } from './utils';
+import { GameObject } from './GameObject';
+import { Lienzo } from './Lienzo';
+import { Material } from './Material';
+import { Scene } from './Scene';
 
 const vertexShaderSource = `#version 300 es
 
-in vec2 a_position;
+layout(location = 0) in vec2 a_position;
 uniform vec2 u_resolution;
 uniform vec2 u_translation;
 
@@ -38,49 +39,22 @@ void main()
 `;
 
 window.onload = () => {
-    const gl = getContext();
-    const program = new Program(gl, vertexShaderSource, fragmentShaderSource, {
-        u_translation: new Float32Array([200, 0]),
-        u_resolution: new Float32Array([gl.canvas.width, gl.canvas.height])
-    });
+    const lienzo = new Lienzo();
 
-    const positionAttributeLocation = gl.getAttribLocation(program.getProgram(), 'a_position');
+    const program = lienzo.createProgram(vertexShaderSource, fragmentShaderSource);
+    const scene = new Scene();
+    const material = new Material(program);
+    const triangle = new GameObject(material, lienzo.primitives.TRIANGLE);
 
-    const buffers = [
-        createBuffer(gl, [50, 150, 100, 100, 150, 150]),
-        createBuffer(gl, [-50, 50, 0, 0, 50, 50])
-    ];
+    scene.addGameObject(triangle);
 
-    const vertexArrayObject = gl.createVertexArray();
-    gl.bindVertexArray(vertexArrayObject);
-    gl.enableVertexAttribArray(positionAttributeLocation);
-
-    if (!vertexArrayObject) throw Error('Error creating vao');
+    triangle.x = 200;
 
     let t = 0.01;
     setInterval(() => {
         t = t + 0.01;
-        program.setUniform('u_translation', new Float32Array([200, 200 + 100 * Math.sin(t)]));
-        program.setUniform('u_resolution', new Float32Array([gl.canvas.width, gl.canvas.height]));
-        draw(gl, program, buffers, [positionAttributeLocation]);
+        triangle.y = 200 + 100 * Math.sin(t);
+        lienzo.clear();
+        scene.draw();
     }, 5);
 };
-
-function draw(
-    gl: WebGL2RenderingContext,
-    program: Program,
-    buffers: WebGLBuffer[],
-    attibutes: number[]
-) {
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    program.use();
-
-    for (const buffer of buffers) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.vertexAttribPointer(attibutes[0], 2, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
-}

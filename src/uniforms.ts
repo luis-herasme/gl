@@ -27,19 +27,30 @@ export function getUniforms(
     const uniformDefinitions: UniformDefinitions = {};
 
     for (const uniformName of Object.keys(data)) {
-        const uniformLocation = gl.getUniformLocation(program, uniformName);
-        const uniformData = data[uniformName];
-
-        const uniformDefinition: UniformDefinition = {
-            data: uniformData,
-            location: uniformLocation,
-            type: getUniformDataType(uniformData)
-        };
-
-        uniformDefinitions[uniformName] = uniformDefinition;
+        uniformDefinitions[uniformName] = getUniformDefinition(
+            gl,
+            uniformName,
+            data[uniformName],
+            program
+        );
     }
 
     return uniformDefinitions;
+}
+
+export function getUniformDefinition(
+    gl: WebGL2RenderingContext,
+    uniformName: string,
+    value: UniformValue,
+    program: WebGLProgram
+): UniformDefinition {
+    const uniformLocation = gl.getUniformLocation(program, uniformName);
+    const uniformDefinition: UniformDefinition = {
+        data: value,
+        location: uniformLocation,
+        type: getUniformDataType(value)
+    };
+    return uniformDefinition;
 }
 
 function getUniformDataType(data: Float32Array | Int32Array): UniformType {
