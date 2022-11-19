@@ -3,14 +3,19 @@ import { Lienzo } from './Lienzo';
 import { Material } from './Material';
 import { Scene } from './Scene';
 
-const vertexShaderSource = `#version 300 es
+const vertexShader = `#version 300 es
 
 layout(location = 0) in vec2 a_position;
+
+layout(location = 1) in vec2 aTexCoord;
+out vec2 vTexCoord;
+
 uniform vec2 u_resolution;
 uniform vec2 u_translation;
 
 void main()
 {
+    vTexCoord = aTexCoord;
     vec2 position = a_position + u_translation;
 
     // Convert the position from pixels -> 0.0, 1.0
@@ -26,29 +31,33 @@ void main()
 }
 `;
 
-const fragmentShaderSource = `#version 300 es
+const fragmentShader = `#version 300 es
 
 precision mediump float;
+
+in vec2 vTexCoord;
+
+uniform sampler2D uSampler;
 
 out vec4 fragColor;
 
 void main()
 {
-    fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    fragColor = texture(uSampler, vTexCoord);
 }
 `;
 
 window.onload = () => {
     const lienzo = new Lienzo();
 
-    const program = lienzo.createProgram(vertexShaderSource, fragmentShaderSource);
+    const program = lienzo.createProgram(vertexShader, fragmentShader);
     const scene = new Scene();
     const material = new Material(program);
-    const triangle = new GameObject(material, lienzo.primitives.TRIANGLE);
+    const triangle = new GameObject(material, lienzo.primitives.SQUARE);
 
     scene.addGameObject(triangle);
 
-    triangle.x = 200;
+    triangle.x = 600;
 
     let t = 0.01;
     setInterval(() => {

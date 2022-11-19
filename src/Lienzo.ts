@@ -1,13 +1,14 @@
-import { getContext } from "./canvas";
-import { Primitives } from "./Primitives";
-import { Program } from "./Program";
+import { getContext } from './canvas';
+import { Primitives } from './Primitives';
+import { Program } from './Program';
 
 export class Lienzo {
     private gl: WebGL2RenderingContext;
     public primitives: Primitives;
 
     constructor() {
-        this.gl = getContext();
+        const gl = getContext();
+        this.gl = gl;
         this.primitives = new Primitives(this.gl);
     }
 

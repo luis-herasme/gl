@@ -20,7 +20,7 @@ export class GameObject {
         this.position[1] = value;
     }
 
-    draw() {
+    draw() {        
         this.material.use();
         this.mesh.use();
         this.material.program.updateUniformData('u_translation', this.position);
